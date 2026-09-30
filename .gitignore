@@ -1,0 +1,82 @@
+# ─── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Environment variables ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+# Keep .env.example committed (it's a template)
+!.env.example
+
+# ─── Build outputs ────────────────────────────────────────────────────────────
+dist/
+build/
+out/
+
+# ─── C++ Engine build artifacts ───────────────────────────────────────────────
+engine/build/
+engine/bin/
+engine/*.exe
+engine/*.out
+engine/*.o
+engine/*.obj
+engine/*.pdb
+engine/*.ilk
+engine/*.exp
+engine/*.lib
+engine/CMakeFiles/
+engine/CMakeCache.txt
+engine/cmake_install.cmake
+engine/Makefile
+engine/.cmake/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Runtime data ─────────────────────────────────────────────────────────────
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ─── Uploads & worker execution dirs (auto-created by backend on startup) ─────
+uploads/
+worker_dirs/
+
+# ─── OS generated files ───────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ─── IDE / Editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Testing ──────────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ─── Vite / React build cache ─────────────────────────────────────────────────
+frontend/.vite/
+frontend/dist/
+
+# ─── Misc ─────────────────────────────────────────────────────────────────────
+*.tgz
+.cache/
