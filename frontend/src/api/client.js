@@ -20,7 +20,7 @@ client.interceptors.response.use(
 )
 
 /* ── Dashboard ─────────────────────────────────────────────── */
-export const getDashboardStats = (range = 'hourly') =>
+export const getDashboardStats = (range = 'minutely') =>
   client.get(`/api/dashboard?range=${range}`).then((r) => r.data)
 
 /* ── Jobs ───────────────────────────────────────────────────── */
