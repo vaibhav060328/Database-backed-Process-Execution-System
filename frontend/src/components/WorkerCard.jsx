@@ -29,6 +29,17 @@ function barColor(pct) {
 export default function WorkerCard({ worker }) {
   const { id, status, cpu = 0, memory = 0, currentJobId, lastHeartbeat } = worker
 
+  /*
+   * `cpu` is a percentage of total machine CPU (100% = every core saturated),
+   * so a single-threaded job peaks at 100/cores.
+   * `memory` is the process working set in MB, not a percentage - the engine
+   * used to send system-wide memory load, which was not the worker's usage at
+   * all. The bar needs some ceiling to fill against; 1 GB is a display choice,
+   * not a limit the engine enforces.
+   */
+  const MEM_BAR_CEILING_MB = 1024
+  const memPct = (memory / MEM_BAR_CEILING_MB) * 100
+
   return (
     <div className={`worker-card ${status ?? 'offline'}`}>
       {/* Header */}
@@ -127,12 +138,12 @@ export default function WorkerCard({ worker }) {
               <MemoryStick size={11} />
               Memory
             </span>
-            <span>{memory.toFixed(1)}%</span>
+            <span>{memory.toFixed(1)} MB</span>
           </div>
           <div className="metric-bar">
             <div
-              className={`metric-bar-fill ${barColor(memory)}`}
-              style={{ width: `${Math.min(memory, 100)}%`, background: memory > 85 ? 'var(--danger)' : memory > 60 ? 'var(--warning)' : 'var(--info)' }}
+              className={`metric-bar-fill ${barColor(memPct)}`}
+              style={{ width: `${Math.min(memPct, 100)}%`, background: memPct > 85 ? 'var(--danger)' : memPct > 60 ? 'var(--warning)' : 'var(--info)' }}
             />
           </div>
         </div>

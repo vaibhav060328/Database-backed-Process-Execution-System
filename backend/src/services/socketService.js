@@ -20,10 +20,6 @@ function initSocket(server) {
   return io
 }
 
-function getIO() {
-  return io
-}
-
 function emitJobStatus(id, status, extra = {}) {
   if (!io) return
   io.emit('job:status', {
@@ -57,7 +53,6 @@ function emitWorkerUpdate(worker) {
 
 module.exports = {
   initSocket,
-  getIO,
   emitJobStatus,
   emitJobLog,
   emitWorkerUpdate,

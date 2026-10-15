@@ -6,7 +6,7 @@ const storage = multer.memoryStorage()
 
 // Allow common executable and script file types
 const fileFilter = (req, file, cb) => {
-  const allowedExtensions = ['.sh', '.py', '.exe', '.c', '.cpp', '.bat', '.cmd', '.js', '.ps1']
+  const allowedExtensions = ['.sh', '.py', '.exe', '.c', '.cpp', '.bat', '.cmd', '.js']
   const ext = path.extname(file.originalname).toLowerCase()
 
   if (allowedExtensions.includes(ext) || !ext) {

@@ -3,22 +3,22 @@ import { useNavigate } from 'react-router-dom'
 import { Upload, FileCode, Plus, Trash2, ChevronRight } from 'lucide-react'
 import { submitJob } from '../api/client'
 
-const ACCEPTED_TYPES = '.sh,.py,.exe,.c'
-const ACCEPTED_DISPLAY = '.sh, .py, .exe, .c'
+const ACCEPTED_TYPES = '.sh,.py,.exe,.c,.cpp,.bat,.cmd,.js'
+const ACCEPTED_DISPLAY = '.sh, .py, .exe, .c,.cpp,.bat,.cmd,.js'
 
 export default function JobSubmit() {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
   /* Form state */
-  const [file,      setFile]      = useState(null)
-  const [dragOver,  setDragOver]  = useState(false)
-  const [name,      setName]      = useState('')
-  const [args,      setArgs]      = useState('')
-  const [envPairs,  setEnvPairs]  = useState([{ key: '', value: '' }])
-  const [step,      setStep]      = useState(1)  // 1: upload, 2: configure
+  const [file, setFile] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [name, setName] = useState('')
+  const [args, setArgs] = useState('')
+  const [envPairs, setEnvPairs] = useState([{ key: '', value: '' }])
+  const [step, setStep] = useState(1)  // 1: upload, 2: configure
   const [submitting, setSubmitting] = useState(false)
-  const [error,     setError]     = useState(null)
+  const [error, setError] = useState(null)
 
   /* File handlers */
   const handleFile = (f) => {

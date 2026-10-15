@@ -5,7 +5,7 @@ const path = require('path')
 const { Job, JobLog, Worker } = require('../models')
 const { upload } = require('../middlewares/upload')
 const { emitJobStatus, emitJobLog } = require('../services/socketService')
-const { uploadFile, getFileStream, deleteFile } = require('../services/storageService')
+const { uploadFile, getFileStream } = require('../services/storageService')
 
 /**
  * GET /api/jobs

@@ -6,7 +6,8 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') })
 
 const { syncDatabase, testConnection } = require('./models')
 const { initSocket } = require('./services/socketService')
-const { startScheduler } = require('./services/scheduler')
+const { startScheduler, stopScheduler } = require('./services/scheduler')
+const { startListener, stopListener } = require('./services/listener')
 
 const jobsRouter = require('./routes/jobs')
 const dashboardRouter = require('./routes/dashboard')
@@ -61,10 +62,39 @@ async function bootstrap() {
   // Start background worker scheduler
   startScheduler()
 
+  // Bridge PostgreSQL NOTIFY events to Socket.io. The C++ dispatcher writes
+  // job status and logs straight to the database, so without this the
+  // dashboard would never see them.
+  startListener()
+
   server.listen(PORT, () => {
     console.log(`📡 Backend server running on http://localhost:${PORT}`)
   })
 }
+
+/**
+ * Shut down cleanly.
+ *
+ * Without this the process exits holding an open PostgreSQL LISTEN connection
+ * and a running interval timer. stopListener and stopScheduler already existed
+ * but nothing ever called them.
+ */
+let shuttingDown = false
+async function shutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log(`\n${signal} received, shutting down...`)
+
+  stopScheduler()
+  await stopListener()
+  server.close(() => console.log('👋 Backend stopped.'))
+
+  // Don't hang forever on a connection that refuses to close.
+  setTimeout(() => process.exit(0), 5000).unref()
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'))
+process.on('SIGTERM', () => shutdown('SIGTERM'))
 
 bootstrap()
 

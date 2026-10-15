@@ -94,6 +94,6 @@ async function deleteFile(key) {
 module.exports = {
   uploadFile,
   getFileStream,
-  deleteFile,
-  s3Client,
+  deleteFile, // unused today; the counterpart to uploadFile, needed whenever
+              // job deletion is implemented
 }

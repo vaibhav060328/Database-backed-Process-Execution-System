@@ -80,3 +80,6 @@ frontend/dist/
 # ─── Misc ─────────────────────────────────────────────────────────────────────
 *.tgz
 .cache/
+
+# Runtime DLLs copied next to engine.exe by the build
+engine/*.dll
