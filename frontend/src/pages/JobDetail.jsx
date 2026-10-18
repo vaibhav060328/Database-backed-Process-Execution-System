@@ -32,19 +32,43 @@ export default function JobDetail() {
   const [cancelling, setCancelling] = useState(false)
   const [error,     setError]     = useState(null)
 
-  /* Fetch job */
+  /*
+   * Fetch the job AND its stored logs.
+   *
+   * GET /api/jobs/:id already returns every log line from the database, but
+   * those were previously discarded: `logs` was reset to [] and only ever
+   * refilled by live socket events. That meant reopening a finished job - or
+   * simply reloading the page - showed an empty log viewer even though the
+   * lines were sitting in job_logs.
+   */
   useEffect(() => {
     setLoading(true)
     setLogs([])
     getJob(id)
-      .then((data) => { setJob(data); setLoading(false) })
+      .then((data) => {
+        setJob(data)
+        setLogs(data.logs || [])
+        setLoading(false)
+      })
       .catch((err) => { setError(err.message); setLoading(false) })
   }, [id])
 
   /* Real-time status update */
   const handleStatus = useCallback((payload) => {
-    if (String(payload.id) === String(id)) {
-      setJob((prev) => prev ? { ...prev, status: payload.status, ...payload } : prev)
+    if (String(payload.id) !== String(id)) return
+
+    setJob((prev) => prev ? { ...prev, status: payload.status, ...payload } : prev)
+
+    // On reaching a terminal state, re-read the job once. Live streaming can
+    // miss lines written between the initial fetch and the socket subscription,
+    // so this makes the stored log the authoritative final view.
+    if (['done', 'failed', 'cancelled'].includes(payload.status)) {
+      getJob(id)
+        .then((data) => {
+          setJob(data)
+          setLogs(data.logs || [])
+        })
+        .catch(() => { /* keep what we already have */ })
     }
   }, [id])
   useJobStatus(handleStatus)

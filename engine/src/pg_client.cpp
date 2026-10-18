@@ -290,28 +290,33 @@ std::vector<int> PgClient::fetchCancelledJobs(const std::vector<std::string>& wo
     return out;
 }
 
-bool PgClient::failOrphanedJobs(const std::string& workerId, const std::string& reason) {
-    if (!ensureConnected()) return false;
+int PgClient::reclaimStaleJobs(int staleSeconds, const std::string& reason) {
+    if (!ensureConnected()) return -1;
+    if (staleSeconds <= 0) staleSeconds = 60;
 
-    // A dispatcher that died mid-job leaves rows stuck in 'running' forever.
-    // Reclaiming them at startup is what makes a crash recoverable.
+    // Join to workers so the decision rests on the heartbeat, not on the id.
+    // A job whose worker has not reported in staleSeconds has no process behind
+    // it: the dispatcher that owned it is gone.
     static const char* kSql =
-        "UPDATE jobs SET status = 'failed', \"exitCode\" = -1, "
-        "                \"finishedAt\" = NOW(), \"updatedAt\" = NOW() "
-        "WHERE status = 'running' AND \"workerId\" = $1 "
-        "RETURNING id";
+        "UPDATE jobs j SET status = 'failed', \"exitCode\" = -1, "
+        "                  \"finishedAt\" = NOW(), \"updatedAt\" = NOW() "
+        "FROM workers w "
+        "WHERE j.\"workerId\" = w.id "
+        "  AND j.status = 'running' "
+        "  AND w.\"lastHeartbeat\" < NOW() - ($1 || ' seconds')::interval "
+        "RETURNING j.id";
 
-    const char* params[1] = { workerId.c_str() };
+    const std::string secs = std::to_string(staleSeconds);
+    const char* params[1] = { secs.c_str() };
     Result res(PQexecParams(impl_->conn, kSql, 1, nullptr, params, nullptr, nullptr, 0));
     if (!res || PQresultStatus(res.get()) != PGRES_TUPLES_OK) {
         lastError_ = PQerrorMessage(impl_->conn);
-        return false;
+        return -1;
     }
 
     const int n = PQntuples(res.get());
     for (int i = 0; i < n; ++i) {
-        const int jobId = colInt(res.get(), i, "id");
-        insertJobLog(jobId, reason, "error");
+        insertJobLog(colInt(res.get(), i, "id"), reason, "error");
     }
-    return true;
+    return n;
 }

@@ -182,12 +182,18 @@ SpawnResult spawnProcess(const std::string& exePath,
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
 
-    // With a memory cap the child starts SUSPENDED so it can be placed in the
-    // Job Object before it executes a single instruction. Assigning afterwards
-    // would leave a window in which it could already have allocated freely.
-    const bool wantLimits = limits.memoryMb > 0;
-    DWORD flags = CREATE_NO_WINDOW;
-    if (wantLimits) flags |= CREATE_SUSPENDED;
+    // Every child goes into a Job Object, not just capped ones.
+    //
+    // KILL_ON_JOB_CLOSE is what stops a job outliving the engine: when the
+    // worker dies its handles close, the job object closes, and the OS kills
+    // everything inside it. Creating the job only when a memory cap was asked
+    // for meant a crash left the job's process running forever, burning CPU
+    // with nothing supervising it.
+    //
+    // The child starts SUSPENDED so it joins the job before executing a single
+    // instruction; assigning afterwards leaves a window in which it could
+    // already have allocated or spawned freely.
+    DWORD flags = CREATE_NO_WINDOW | CREATE_SUSPENDED;
 
     BOOL ok = CreateProcessA(
         NULL, cmdv.data(), NULL, NULL,
@@ -203,20 +209,22 @@ SpawnResult spawnProcess(const std::string& exePath,
         return r;
     }
 
-    if (wantLimits) {
+    {
         HANDLE job = CreateJobObjectA(NULL, NULL);
         if (job != NULL) {
             JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
             ZeroMemory(&info, sizeof(info));
-            info.BasicLimitInformation.LimitFlags =
-                JOB_OBJECT_LIMIT_PROCESS_MEMORY |
-                JOB_OBJECT_LIMIT_JOB_MEMORY |
-                // Closing the job handle kills everything in it, so a job that
-                // spawns its own children cannot leave orphans behind.
-                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-            const SIZE_T bytes = static_cast<SIZE_T>(limits.memoryMb) * 1024u * 1024u;
-            info.ProcessMemoryLimit = bytes;
-            info.JobMemoryLimit     = bytes;
+
+            // Always on: kill the whole job when the last handle closes.
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+            if (limits.memoryMb > 0) {
+                info.BasicLimitInformation.LimitFlags |=
+                    JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_JOB_MEMORY;
+                const SIZE_T bytes = static_cast<SIZE_T>(limits.memoryMb) * 1024u * 1024u;
+                info.ProcessMemoryLimit = bytes;
+                info.JobMemoryLimit     = bytes;
+            }
 
             if (SetInformationJobObject(job, JobObjectExtendedLimitInformation,
                                         &info, sizeof(info)) &&

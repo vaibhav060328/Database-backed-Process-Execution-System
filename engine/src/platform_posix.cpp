@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 #include <sys/types.h>
 #include <cstring>
 #include <cstdlib>
@@ -166,6 +169,18 @@ SpawnResult spawnProcess(const std::string& exePath,
             rl.rlim_max = rl.rlim_cur;
             ::setrlimit(RLIMIT_AS, &rl);
         }
+
+        // Die with the parent.
+        //
+        // The Linux counterpart of a Windows Job Object with KILL_ON_JOB_CLOSE:
+        // if the worker is killed, the kernel sends SIGKILL here instead of
+        // leaving the job running forever as an orphan reparented to init.
+#ifdef PR_SET_PDEATHSIG
+        ::prctl(PR_SET_PDEATHSIG, SIGKILL);
+        // Guard against the race where the parent died between fork and here,
+        // in which case the signal has already been missed.
+        if (::getppid() == 1) ::_exit(127);
+#endif
 
         // Restore default signal handling: the parent may have ignored signals
         // that the job should still receive.

@@ -26,6 +26,7 @@ std::string isoNow() {
 constexpr auto kTick            = std::chrono::milliseconds(100);
 constexpr auto kHeartbeatPeriod = std::chrono::seconds(4);
 constexpr auto kCancelPeriod    = std::chrono::seconds(2);
+constexpr auto kReclaimPeriod   = std::chrono::seconds(30);
 
 } // namespace
 
@@ -145,11 +146,6 @@ void Dispatcher::handleMessage(WorkerSlot& slot, const ipc::Message& m) {
             std::cerr << "Could not register worker " << slot.id << ": "
                       << db_.lastError() << std::endl;
         }
-
-        // A previous dispatcher may have died mid-job, leaving rows stuck in
-        // 'running' with nobody executing them. Release them now.
-        db_.failOrphanedJobs(slot.id,
-            "Job released: the worker process restarted while it was running.");
 
         std::cout << "Worker " << slot.id << " ready (pid " << m.pid << ")" << std::endl;
 
@@ -332,6 +328,8 @@ void Dispatcher::superviseWorkers() {
 void Dispatcher::run(const std::atomic<bool>& shutdownRequested) {
     lastHeartbeat_   = std::chrono::steady_clock::now();
     lastCancelCheck_ = lastHeartbeat_;
+    // Sweep once at startup too, so a crashed predecessor is cleaned up promptly.
+    lastReclaim_     = lastHeartbeat_ - kReclaimPeriod;
 
     while (!shutdownRequested) {
         // 1. Always drain first. Everything else depends on not being deadlocked.
@@ -347,6 +345,16 @@ void Dispatcher::run(const std::atomic<bool>& shutdownRequested) {
         if (now - lastHeartbeat_ >= kHeartbeatPeriod) {
             lastHeartbeat_ = now;
             heartbeat();
+        }
+        if (now - lastReclaim_ >= kReclaimPeriod) {
+            lastReclaim_ = now;
+            const int freed = db_.reclaimStaleJobs(60,
+                "Job released: its worker stopped reporting, so the engine "
+                "running it is gone.");
+            if (freed > 0) {
+                std::cout << "Released " << freed
+                          << " job(s) orphaned by a dead engine." << std::endl;
+            }
         }
         if (now - lastCancelCheck_ >= kCancelPeriod) {
             lastCancelCheck_ = now;

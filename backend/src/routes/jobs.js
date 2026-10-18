@@ -4,7 +4,6 @@ const { Op } = require('sequelize')
 const path = require('path')
 const { Job, JobLog, Worker } = require('../models')
 const { upload } = require('../middlewares/upload')
-const { emitJobStatus, emitJobLog } = require('../services/socketService')
 const { uploadFile, getFileStream } = require('../services/storageService')
 
 /**
@@ -54,10 +53,23 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
+    /*
+     * Order the logs at the TOP level, not inside the include.
+     *
+     * Sequelize silently ignores `order` within an include for a hasMany
+     * association, so logs came back in whatever order PostgreSQL happened to
+     * return them - the "Job created" line written at submission time showed up
+     * last in the viewer. Sorting by id as well as timestamp breaks ties, since
+     * several lines can share the same second.
+     */
     const job = await Job.findByPk(req.params.id, {
       include: [
-        { model: JobLog, as: 'logs', order: [['timestamp', 'ASC']] },
+        { model: JobLog, as: 'logs' },
         { model: Worker, as: 'worker' },
+      ],
+      order: [
+        [{ model: JobLog, as: 'logs' }, 'timestamp', 'ASC'],
+        [{ model: JobLog, as: 'logs' }, 'id', 'ASC'],
       ],
     })
 
@@ -137,15 +149,22 @@ router.post('/', upload.single('file'), async (req, res) => {
     })
 
     // Initial log entry
-    const initialLog = await JobLog.create({
+    await JobLog.create({
       jobId: newJob.id,
       line: `Job created with file '${file.originalname}' stored in Neon Object Storage and queued.`,
       level: 'info',
     })
 
-    // Emit live socket events
-    emitJobStatus(newJob.id, 'queued', { name: newJob.name, fileName: newJob.fileName })
-    emitJobLog(newJob.id, initialLog.line, initialLog.level)
+    /*
+     * No socket emit here.
+     *
+     * Every write to jobs/job_logs fires a database trigger that NOTIFYs, and
+     * services/listener.js re-broadcasts it. Emitting from the route as well
+     * delivered each change twice - visible as duplicated rows in the
+     * dashboard's activity feed. The database is now the single source of
+     * events, which also covers the writes the C++ dispatcher makes directly
+     * and which never pass through Express at all.
+     */
 
     res.status(201).json({
       id: newJob.id,
@@ -177,14 +196,13 @@ router.delete('/:id', async (req, res) => {
     job.finishedAt = new Date()
     await job.save()
 
-    const cancelLog = await JobLog.create({
+    await JobLog.create({
       jobId: job.id,
       line: 'Job cancelled by user request.',
       level: 'warn',
     })
 
-    emitJobStatus(job.id, 'cancelled')
-    emitJobLog(job.id, cancelLog.line, cancelLog.level)
+    // Events come from the database trigger; see the note on job creation.
 
     res.json({ message: 'Job cancelled successfully', job })
   } catch (error) {
@@ -212,7 +230,6 @@ router.post('/:id/logs', async (req, res) => {
       level: level || 'info',
     })
 
-    emitJobLog(jobId, logEntry.line, logEntry.level)
     res.status(201).json({ success: true, log: logEntry })
   } catch (error) {
     res.status(500).json({ message: error.message })
@@ -240,7 +257,6 @@ router.patch('/:id/status', async (req, res) => {
     if (finishedAt) job.finishedAt = finishedAt
 
     await job.save()
-    emitJobStatus(job.id, job.status, { workerId: job.workerId, exitCode: job.exitCode })
 
     res.json({ success: true, job })
   } catch (error) {

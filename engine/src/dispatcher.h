@@ -77,6 +77,7 @@ private:
 
     std::chrono::steady_clock::time_point lastHeartbeat_{};
     std::chrono::steady_clock::time_point lastCancelCheck_{};
+    std::chrono::steady_clock::time_point lastReclaim_{};
     std::vector<std::chrono::steady_clock::time_point> jobStartedAt_;
     bool stopped_ = false;
 };

@@ -80,8 +80,24 @@ public:
     /** Job ids currently 'cancelled' in the database but still assigned to a worker. */
     std::vector<int> fetchCancelledJobs(const std::vector<std::string>& workerIds);
 
-    /** Release jobs this worker left behind after a crash or restart. */
-    bool failOrphanedJobs(const std::string& workerId, const std::string& reason);
+    /**
+     * Release jobs whose worker has stopped reporting.
+     *
+     * Any job still 'running' against a worker whose lastHeartbeat is older
+     * than `staleSeconds` has no process behind it and would otherwise sit in
+     * 'running' forever.
+     *
+     * Keyed on the heartbeat rather than on a worker id: worker ids embed the
+     * dispatcher's pid (so that two dispatchers on one host stay distinct), so
+     * a restarted dispatcher never sees its predecessor's ids again and an
+     * id-based sweep would never match. A live dispatcher heartbeats every 4
+     * seconds, so a 60 second threshold cannot misfire on a healthy worker -
+     * and because the rule is "stale", ANY running dispatcher cleans up after a
+     * crashed one, not just a replacement on the same machine.
+     *
+     * Returns the number of jobs released, or -1 on error.
+     */
+    int reclaimStaleJobs(int staleSeconds, const std::string& reason);
 
     const std::string& lastError() const { return lastError_; }
 

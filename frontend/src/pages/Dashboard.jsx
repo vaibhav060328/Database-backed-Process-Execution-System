@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity, Layers, Play, XCircle, Server, Plus, RefreshCw,
 } from 'lucide-react'
 import { getDashboardStats } from '../api/client'
-import { useJobStatus } from '../hooks/useSocket'
+import { useJobStatus, useWorkerUpdates } from '../hooks/useSocket'
 import StatsChart from '../components/StatsChart'
 import StatusBadge from '../components/StatusBadge'
 
@@ -36,15 +36,47 @@ export default function Dashboard() {
       .catch(() => setLoading(false))
   }, [range, refresh])
 
+  /*
+   * Refresh the stat cards and chart when something actually changes.
+   *
+   * Previously the socket only fed the activity feed: the counters and the
+   * chart came from a single fetch on mount, so the dashboard looked frozen
+   * while jobs ran. Coalesced to at most one request per second, because a busy
+   * engine emits many status and heartbeat events per second and each one would
+   * otherwise trigger its own fetch.
+   */
+  const refreshTimer = useRef(null)
+  const scheduleStatsRefresh = useCallback(() => {
+    if (refreshTimer.current) return
+    refreshTimer.current = setTimeout(() => {
+      refreshTimer.current = null
+      getDashboardStats(range)
+        .then(setStats)
+        .catch(() => { /* keep the previous numbers */ })
+    }, 1000)
+  }, [range])
+
+  useEffect(() => () => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current)
+  }, [])
+
   /* Real-time activity via socket */
   const handleJobStatus = useCallback((payload) => {
     setActivity((prev) => [
       { ...payload, receivedAt: new Date().toISOString() },
       ...prev.slice(0, 9),
     ])
-  }, [])
+    scheduleStatsRefresh()
+  }, [scheduleStatsRefresh])
 
   useJobStatus(handleJobStatus)
+
+  // Worker heartbeats change the "Workers Online" card, so they count too.
+  const handleWorkerUpdate = useCallback(() => {
+    scheduleStatsRefresh()
+  }, [scheduleStatsRefresh])
+
+  useWorkerUpdates(handleWorkerUpdate)
 
   const statCards = stats
     ? [
