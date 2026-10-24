@@ -54,28 +54,28 @@ output as it is produced.
 Counters and chart update over WebSocket as jobs move through the queue; the activity panel
 shows each transition as it happens.
 
-![Dashboard with live activity][https://github.com/user-attachments/assets/24704656-2e16-43ba-a508-e6851cf9d75b]
+![Dashboard with live activity][img-dashboard]
 
 ### Job detail — full output log, timeline and worker assignment
 
 Every line of a job's stdout and stderr is stored and replayed, so logs survive a page reload
 long after the job finished.
 
-![Job detail][https://github.com/user-attachments/assets/c4c6dd20-f413-4009-ab7c-9869c2810b41]
+![Job detail][img-job-detail]
 
 ### Job list — searchable, filterable, paginated
 
-![Job list][https://github.com/user-attachments/assets/325ce8c4-b027-44ee-971c-c2d736f7e439]
+![Job list][img-job-list]
 
 ### Workers — per-worker CPU, memory and current job
 
 CPU is a share of total machine capacity; memory is the job process's working set.
 
-![Workers][https://github.com/user-attachments/assets/b51c2ddb-68e0-4bd6-adde-aba941bdd3a2]
+![Workers][img-workers]
 
 ### Submit a job
 
-![Submit job][https://github.com/user-attachments/assets/529b2435-e1ba-4420-bf2f-cd549348f13c]
+![Submit job][img-submit-job]
 
 ---
 
@@ -537,8 +537,8 @@ isolation with respawn, and reclamation of jobs orphaned by a crashed engine.
     https://github.com/user-attachments/assets/<id>
 ─────────────────────────────────────────────────────────────────────────── -->
 
-[img-dashboard]:  https://REPLACE-ME/dashboard.png
-[img-job-detail]: https://REPLACE-ME/job-detail.png
-[img-job-list]:   https://REPLACE-ME/job-list.png
-[img-workers]:    https://REPLACE-ME/workers.png
-[img-submit-job]: https://REPLACE-ME/submit-job.png
+[img-dashboard]: https://github.com/user-attachments/assets/24704656-2e16-43ba-a508-e6851cf9d75b
+[img-job-detail]: https://github.com/user-attachments/assets/c4c6dd20-f413-4009-ab7c-9869c2810b41
+[img-job-list]: https://github.com/user-attachments/assets/325ce8c4-b027-44ee-971c-c2d736f7e439
+[img-workers]: https://github.com/user-attachments/assets/b51c2ddb-68e0-4bd6-adde-aba941bdd3a2
+[img-submit-job]: https://github.com/user-attachments/assets/529b2435-e1ba-4420-bf2f-cd549348f13c
